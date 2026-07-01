@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operation Registry</title>
+    <!-- Tailwind CSS v4 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        /* Custom scrollbar styling for seamless design */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans min-h-screen antialiased flex flex-col">
+
+    <!-- Toast Notification Banner -->
+    <div id="toast" class="fixed top-4 right-4 z-50 transform translate-y-[-100px] opacity-0 transition-all duration-300 ease-out bg-slate-900 text-white px-4 py-3 rounded-lg shadow-xl flex items-center space-x-3 pointer-events-none">
+        <span id="toastIcon" class="text-emerald-400 font-bold">✓</span>
+        <span id="toastMessage" class="text-sm font-medium">Operation saved successfully</span>
+    </div>
+
+    <!-- Main Container -->
+    <main class="max-w-4xl w-full mx-auto p-4 md:p-8 flex-grow">
+        
+        <!-- Header Section -->
+        <header class="mb-8 border-b border-slate-200 pb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">Operation Registry</h1>
+                <p class="text-slate-500 text-sm mt-1">Deploy, catalog, and query active standard operating procedures.</p>
+            </div>
+            <div class="flex items-center space-x-2 text-xs bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-full font-semibold self-start md:self-auto">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Connected to Cloud Firestore</span>
+            </div>
+        </header>
+
+        <!-- Layout Grid: Form (Left/Top) & Operations List (Right/Bottom) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- Upload Panel -->
+            <section class="lg:col-span-5 space-y-4">
+                <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm sticky top-6">
+                    <h2 class="text-lg font-bold text-slate-800 mb-4">Register Operation</h2>
+                    
+                    <form id="operationForm" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5" for="opName">Operation Name / ID</label>
+                            <input 
+                                type="text" 
+                                id="opName" 
+                                placeholder="e.g., Operation 22.0" 
+                                required
+                                class="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder:text-slate-400"
+                            >
+                        </div>
+                        
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5" for="opDesc">System Instructions & Payload</label>
+                            <textarea 
+                                id="opDesc" 
+                                rows="6" 
+                                placeholder="Detail the operational steps, execution criteria, or manual tasks..." 
+                                required
+                                class="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder:text-slate-400 resize-y"
+                            ></textarea>
+                        </div>
+
+                        <button 
+                            type="submit" 
+                            id="submitBtn"
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-all duration-150 ease-in-out text-sm shadow-sm cursor-pointer hover:shadow focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                        >
+                            Upload to Registry
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Query Panel / Database Stream -->
+            <section class="lg:col-span-7 space-y-4">
+                
+                <!-- Filter bar -->
+                <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex items-center space-x-2">
+                    <svg class="w-5 h-5 text-slate-400 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                    <input 
+                        type="text" 
+                        id="searchBar" 
+                        placeholder="Search operations by ID or payload details..." 
+                        class="w-full bg-transparent border-none text-sm focus:outline-none placeholder:text-slate-400 pr-4"
+                    >
+                </div>
+
+                <!-- Database Entries Container -->
+                <div class="space-y-3" id="operationsContainer">
+                    <!-- Loading Skeleton UI -->
+                    <div class="animate-pulse space-y-3">
+                        <div class="bg-slate-200/60 h-28 rounded-xl border border-slate-100"></div>
+                        <div class="bg-slate-200/60 h-28 rounded-xl border border-slate-100"></div>
+                        <div class="bg-slate-200/60 h-28 rounded-xl border border-slate-100"></div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-200 bg-white py-6 mt-12 text-center text-xs text-slate-400">
+        <p>© 2026 Operation Registry. Stored securely in cloud database.</p>
+    </footer>
+
+    <!-- Firebase SDK Modular Imports -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // Firebase Configuration injected directly from your project settings
+        const firebaseConfig = {
+            apiKey: "AIzaSyBTamD50hmELV0QZ6j0bsjk_h4qc54H3ss",
+            authDomain: "operatons-e90fb.firebaseapp.com",
+            projectId: "operatons-e90fb",
+            storageBucket: "operatons-e90fb.firebasestorage.app",
+            messagingSenderId: "546459212217",
+            appId: "1:546459212217:web:652bfcf79887abd658fe68",
+            measurementId: "G-TJ1X80NJBK"
+        };
+
+        // Initialize App & DB Connection
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const operationsRef = collection(db, "operations");
+
+        // DOM elements configuration
+        const operationForm = document.getElementById('operationForm');
+        const operationsContainer = document.getElementById('operationsContainer');
+        const searchBar = document.getElementById('searchBar');
+        const submitBtn = document.getElementById('submitBtn');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
+        const toastIcon = document.getElementById('toastIcon');
+
+        let cache = [];
+
+        // Toast Trigger Handler
+        function showNotification(message, isError = false) {
+            toastMessage.textContent = message;
+            if (isError) {
+                toast.classList.remove('bg-slate-900');
+                toast.classList.add('bg-rose-600');
+                toastIcon.innerHTML = "𐄂";
+                toastIcon.className = "text-white font-bold";
+            } else {
+                toast.classList.remove('bg-rose-600');
+                toast.classList.add('bg-slate-900');
+                toastIcon.innerHTML = "✓";
+                toastIcon.className = "text-emerald-400 font-bold";
+            }
+            
+            // Trigger animation
+            toast.classList.remove('translate-y-[-100px]', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-[-100px]', 'opacity-0');
+            }, 3000);
+        }
+
+        // Live Firestore Event Listener
+        const q = query(operationsRef, orderBy("createdAt", "desc"));
+        
+        onSnapshot(q, (snapshot) => {
+            cache = [];
+            snapshot.forEach((doc) => {
+                cache.push({ id: doc.id, ...doc.data() });
+            });
+            renderData(cache);
+        }, (error) => {
+            console.error("Firestore Error: ", error);
+            showNotification("Permission denied or database offline.", true);
+            operationsContainer.innerHTML = `
+                <div class="bg-rose-50 border border-rose-200 p-4 rounded-xl text-rose-800 text-sm">
+                    <p class="font-semibold">Unable to establish connection to Cloud Firestore</p>
+                    <p class="text-xs text-rose-600 mt-1">Please verify that your database security rules allow read/write operations.</p>
+                </div>
+            `;
+        });
+
+        // Form Submission Execution
+        operationForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const nameField = document.getElementById('opName');
+            const descField = document.getElementById('opDesc');
+            
+            const name = nameField.value.trim();
+            const description = descField.value.trim();
+
+            if (!name || !description) return;
+
+            // Prevent double-clicks
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Writing payload...";
+
+            try {
+                await addDoc(operationsRef, {
+                    name,
+                    description,
+                    createdAt: new Date()
+                });
+                
+                operationForm.reset();
+                showNotification("Operation successfully indexed");
+            } catch (err) {
+                console.error("Error committing write sequence: ", err);
+                showNotification("Storage error. Check permissions.", true);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = "Upload to Registry";
+            }
+        });
+
+        // Search Input Event
+        searchBar.addEventListener('input', (e) => {
+            const queryVal = e.target.value.toLowerCase().trim();
+            const filtered = cache.filter(op => 
+                op.name.toLowerCase().includes(queryVal) || 
+                op.description.toLowerCase().includes(queryVal)
+            );
+            renderData(filtered);
+        });
+
+        // Render UI Pipeline
+        function renderData(dataList) {
+            operationsContainer.innerHTML = '';
+
+            if (dataList.length === 0) {
+                operationsContainer.innerHTML = `
+                    <div class="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-500">
+                        <svg class="w-10 h-10 text-slate-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <p class="text-sm font-semibold">No operations match your search criteria.</p>
+                        <p class="text-xs text-slate-400 mt-1">Try expanding your keywords or register a new operation on the left.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            dataList.forEach(op => {
+                const dateVal = op.createdAt?.toDate ? op.createdAt.toDate() : new Date();
+                const formattedDate = dateVal.toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                const card = document.createElement('div');
+                card.className = "bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3 transition-all duration-200 hover:border-slate-300 hover:shadow";
+                card.innerHTML = `
+                    <div class="flex items-center justify-between gap-4">
+                        <h3 class="text-md font-bold text-slate-900 tracking-tight">${escapeHTML(op.name)}</h3>
+                        <span class="text-[10px] text-slate-400 font-mono tracking-wider bg-slate-50 px-2 py-1 rounded border border-slate-100 flex-shrink-0">${formattedDate}</span>
+                    </div>
+                    <p class="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">${escapeHTML(op.description)}</p>
+                `;
+                operationsContainer.appendChild(card);
+            });
+        }
+
+        // XSS sanitization engine
+        function escapeHTML(str) {
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
