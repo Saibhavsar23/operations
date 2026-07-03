@@ -1,0 +1,499 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operation Registration</title>
+    <!-- Tailwind CSS v4 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans min-h-screen antialiased flex flex-col">
+
+    <!-- Custom Toast Notification -->
+    <div id="toast" class="fixed top-4 right-4 z-50 transform translate-y-[-100px] opacity-0 transition-all duration-300 ease-out bg-slate-900 text-white px-4 py-3 rounded-lg shadow-xl flex items-center space-x-3 pointer-events-none">
+        <span id="toastIcon" class="text-emerald-400 font-bold">✓</span>
+        <span id="toastMessage" class="text-sm font-medium">Operation saved successfully</span>
+    </div>
+
+    <!-- PIN Authentication Modal -->
+    <div id="authModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 border border-slate-100 transform scale-95 transition-all duration-200">
+            <div class="text-center space-y-2 mb-6">
+                <div class="mx-auto w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold text-slate-900">Enter Authorization PIN</h3>
+                <p class="text-xs text-slate-500">A 4-digit code is required to register or modify operations.</p>
+            </div>
+            <form id="authForm" class="space-y-4">
+                <input 
+                    type="password" 
+                    id="pinInput" 
+                    maxlength="4" 
+                    placeholder="••••" 
+                    autofocus
+                    class="w-full text-center text-2xl tracking-widest py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono bg-slate-50"
+                >
+                <div id="authError" class="text-xs text-rose-600 font-medium text-center hidden">Incorrect authorization code.</div>
+                <div class="flex space-x-2">
+                    <button 
+                        type="button" 
+                        id="cancelAuthBtn"
+                        class="w-1/2 py-2 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50 cursor-pointer"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        type="submit" 
+                        class="w-1/2 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 cursor-pointer"
+                    >
+                        Verify
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Workspace Container -->
+    <main class="max-w-6xl w-full mx-auto p-4 md:p-8 flex-grow">
+        
+        <!-- Header Panel -->
+        <header class="mb-8 border-b border-slate-200 pb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">Operation Registration</h1>
+                <p class="text-slate-500 text-sm mt-1">Deploy, catalog, and query active standard operating procedures.</p>
+            </div>
+            
+            <div class="flex items-center space-x-3">
+                <!-- Lock State Status Indicator -->
+                <button 
+                    id="lockToggleBtn"
+                    class="flex items-center space-x-2 text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-150 cursor-pointer border border-slate-200 bg-white hover:bg-slate-50"
+                >
+                    <span id="lockStatusIcon" class="text-slate-500">🔒</span>
+                    <span id="lockStatusText">Locked</span>
+                </button>
+                <div class="flex items-center space-x-2 text-xs bg-emerald-100 text-emerald-800 px-3 py-2 rounded-lg font-semibold">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Real-time</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Dynamic Responsive Interface Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            <!-- Registration Sidebar - Hidden when locked, displays when unlocked -->
+            <section id="registrationPanel" class="lg:col-span-4 space-y-4 hidden">
+                <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm sticky top-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 id="formTitle" class="text-lg font-bold text-slate-800">Register Operation</h2>
+                        <button 
+                            id="cancelEditBtn" 
+                            class="text-xs text-rose-600 hover:underline hidden"
+                        >
+                            Cancel Edit
+                        </button>
+                    </div>
+                    
+                    <form id="operationForm" class="space-y-4">
+                        <input type="hidden" id="editingDocId">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5" for="opName">Operation Name / ID</label>
+                            <input 
+                                type="text" 
+                                id="opName" 
+                                placeholder="e.g., Operation 22.0" 
+                                required
+                                class="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-slate-400"
+                            >
+                        </div>
+                        
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5" for="opDesc">System Instructions & Payload</label>
+                            <textarea 
+                                id="opDesc" 
+                                rows="6" 
+                                placeholder="Detail the operational steps, execution criteria, or manual tasks..." 
+                                required
+                                class="w-full px-3.5 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-slate-400 resize-y"
+                            ></textarea>
+                        </div>
+
+                        <button 
+                            type="submit" 
+                            id="submitBtn"
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-all duration-150 ease-in-out text-sm shadow-sm cursor-pointer hover:shadow"
+                        >
+                            Upload to Registry
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Query Panel / Database Stream -->
+            <section id="databasePanel" class="lg:col-span-12 space-y-4 transition-all duration-300">
+                
+                <!-- Filter bar -->
+                <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex items-center space-x-2">
+                    <svg class="w-5 h-5 text-slate-400 ml-2 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                    <input 
+                        type="text" 
+                        id="searchBar" 
+                        placeholder="Search operations by ID or payload details..." 
+                        class="w-full bg-transparent border-none text-sm focus:outline-none placeholder:text-slate-400 pr-4"
+                    >
+                </div>
+
+                <!-- Database Entries Container -->
+                <div class="space-y-3" id="operationsContainer">
+                    <!-- Loading Skeleton UI -->
+                    <div class="animate-pulse space-y-3">
+                        <div class="bg-slate-200/60 h-28 rounded-xl border border-slate-100"></div>
+                        <div class="bg-slate-200/60 h-28 rounded-xl border border-slate-100"></div>
+                        <div class="bg-slate-200/60 h-28 rounded-xl border border-slate-100"></div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-200 bg-white py-6 mt-12 text-center text-xs text-slate-400">
+        <p>© 2026 Operation Registration. Secured with cryptographic routing rules.</p>
+    </footer>
+
+    <!-- Firebase SDK Modular Imports -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, updateDoc, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // Your specified Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBTamD50hmELV0QZ6j0bsjk_h4qc54H3ss",
+            authDomain: "operatons-e90fb.firebaseapp.com",
+            projectId: "operatons-e90fb",
+            storageBucket: "operatons-e90fb.firebasestorage.app",
+            messagingSenderId: "546459212217",
+            appId: "1:546459212217:web:652bfcf79887abd658fe68",
+            measurementId: "G-TJ1X80NJBK"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const operationsRef = collection(db, "operations");
+
+        // UI Globals & State variables
+        const CORRECT_PIN = "0067";
+        let isAuthorized = false;
+        let cache = [];
+        let activeEditId = null;
+
+        // DOM Elements
+        const authModal = document.getElementById('authModal');
+        const authForm = document.getElementById('authForm');
+        const pinInput = document.getElementById('pinInput');
+        const authError = document.getElementById('authError');
+        const cancelAuthBtn = document.getElementById('cancelAuthBtn');
+        const lockToggleBtn = document.getElementById('lockToggleBtn');
+        const lockStatusIcon = document.getElementById('lockStatusIcon');
+        const lockStatusText = document.getElementById('lockStatusText');
+        const registrationPanel = document.getElementById('registrationPanel');
+        const databasePanel = document.getElementById('databasePanel');
+        const operationsContainer = document.getElementById('operationsContainer');
+        const operationForm = document.getElementById('operationForm');
+        const formTitle = document.getElementById('formTitle');
+        const submitBtn = document.getElementById('submitBtn');
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        const editingDocId = document.getElementById('editingDocId');
+        const searchBar = document.getElementById('searchBar');
+
+        // Notification Banner Trigger
+        function showNotification(message, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMessage.textContent = message;
+            if (isError) {
+                toast.classList.remove('bg-slate-900');
+                toast.classList.add('bg-rose-600');
+                toastIcon.innerHTML = "𐄂";
+                toastIcon.className = "text-white font-bold";
+            } else {
+                toast.classList.remove('bg-rose-600');
+                toast.classList.add('bg-slate-900');
+                toastIcon.innerHTML = "✓";
+                toastIcon.className = "text-emerald-400 font-bold";
+            }
+            
+            toast.classList.remove('translate-y-[-100px]', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-[-100px]', 'opacity-0');
+            }, 3000);
+        }
+
+        // Lock Toggle Event Handler
+        lockToggleBtn.addEventListener('click', () => {
+            if (isAuthorized) {
+                revokeAuthorization();
+            } else {
+                openAuthModal();
+            }
+        });
+
+        // Modal Action Handlers
+        function openAuthModal() {
+            authError.classList.add('hidden');
+            pinInput.value = '';
+            authModal.classList.remove('hidden');
+            pinInput.focus();
+        }
+
+        cancelAuthBtn.addEventListener('click', () => {
+            authModal.classList.add('hidden');
+        });
+
+        // PIN Verification Pipeline
+        authForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const enteredPin = pinInput.value;
+            
+            if (enteredPin === CORRECT_PIN) {
+                grantAuthorization();
+                authModal.classList.add('hidden');
+            } else {
+                authError.classList.remove('hidden');
+                pinInput.value = '';
+                pinInput.focus();
+            }
+        });
+
+        function grantAuthorization() {
+            isAuthorized = true;
+            lockStatusIcon.textContent = "🔓";
+            lockStatusText.textContent = "Unlocked (Admin)";
+            lockToggleBtn.classList.remove('bg-white', 'text-slate-900');
+            lockToggleBtn.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
+            
+            // Adjust layouts dynamically
+            registrationPanel.classList.remove('hidden');
+            databasePanel.classList.remove('lg:col-span-12');
+            databasePanel.classList.add('lg:col-span-8');
+            
+            showNotification("Access verified: Operations unlocked");
+            renderData(cache); // Re-render to show edit action items
+        }
+
+        function revokeAuthorization() {
+            isAuthorized = false;
+            activeEditId = null;
+            lockStatusIcon.textContent = "🔒";
+            lockStatusText.textContent = "Locked";
+            lockToggleBtn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600');
+            lockToggleBtn.classList.add('bg-white', 'text-slate-900');
+            
+            // Lock UI Layout
+            registrationPanel.classList.add('hidden');
+            databasePanel.classList.remove('lg:col-span-8');
+            databasePanel.classList.add('lg:col-span-12');
+            
+            operationForm.reset();
+            exitEditMode();
+            showNotification("Authorization session revoked");
+            renderData(cache);
+        }
+
+        // Live Real-Time Database Event Listener
+        const q = query(operationsRef, orderBy("createdAt", "desc"));
+        onSnapshot(q, (snapshot) => {
+            cache = [];
+            snapshot.forEach((doc) => {
+                cache.push({ id: doc.id, ...doc.data() });
+            });
+            renderData(cache);
+        }, (error) => {
+            console.error("Firestore Read Fail: ", error);
+            showNotification("Connection lost. Verify rules settings.", true);
+        });
+
+        // Setup Form Submissions (Create and Update)
+        operationForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!isAuthorized) {
+                showNotification("Verification expired. Log in again.", true);
+                return;
+            }
+
+            const nameField = document.getElementById('opName');
+            const descField = document.getElementById('opDesc');
+            const name = nameField.value.trim();
+            const description = descField.value.trim();
+
+            if (!name || !description) return;
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Writing...";
+
+            try {
+                if (activeEditId) {
+                    // Update Mode Execution
+                    const docToUpdate = doc(db, "operations", activeEditId);
+                    await updateDoc(docToUpdate, {
+                        name: name,
+                        description: description
+                    });
+                    showNotification("Operation updated successfully");
+                    exitEditMode();
+                } else {
+                    // Add Mode Execution
+                    await addDoc(operationsRef, {
+                        name: name,
+                        description: description,
+                        createdAt: new Date()
+                    });
+                    showNotification("Operation registered successfully");
+                }
+                operationForm.reset();
+            } catch (err) {
+                console.error("Database Write Error: ", err);
+                showNotification("Action blocked. Verify database status rules.", true);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = activeEditId ? "Update Operation" : "Upload to Registry";
+            }
+        });
+
+        // Trigger Edit Functionality
+        window.initializeEdit = function(id) {
+            if (!isAuthorized) return;
+            
+            const target = cache.find(item => item.id === id);
+            if (!target) return;
+
+            activeEditId = id;
+            document.getElementById('opName').value = target.name;
+            document.getElementById('opDesc').value = target.description;
+
+            // Transition UI fields to active Edit Layout
+            formTitle.textContent = "Edit Operation";
+            submitBtn.textContent = "Update Operation";
+            submitBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            submitBtn.classList.add('bg-amber-600', 'hover:bg-amber-700');
+            cancelEditBtn.classList.remove('hidden');
+            
+            // Scroll layout back to the top area smoothly on mobile screens
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        // Cancel Edit Form UI Actions
+        cancelEditBtn.addEventListener('click', exitEditMode);
+        
+        function exitEditMode() {
+            activeEditId = null;
+            operationForm.reset();
+            formTitle.textContent = "Register Operation";
+            submitBtn.textContent = "Upload to Registry";
+            submitBtn.classList.remove('bg-amber-600', 'hover:bg-amber-700');
+            submitBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            cancelEditBtn.classList.add('hidden');
+        }
+
+        // Live Client Search Query Logic
+        searchBar.addEventListener('input', (e) => {
+            const queryVal = e.target.value.toLowerCase().trim();
+            const filtered = cache.filter(op => 
+                op.name.toLowerCase().includes(queryVal) || 
+                op.description.toLowerCase().includes(queryVal)
+            );
+            renderData(filtered);
+        });
+
+        // Layout Rendering Engine
+        function renderData(dataList) {
+            operationsContainer.innerHTML = '';
+
+            if (dataList.length === 0) {
+                operationsContainer.innerHTML = `
+                    <div class="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-500">
+                        <svg class="w-10 h-10 text-slate-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <p class="text-sm font-semibold">No operations match your search criteria.</p>
+                        <p class="text-xs text-slate-400 mt-1">Try expanding search query parameters.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            dataList.forEach(op => {
+                const dateVal = op.createdAt?.toDate ? op.createdAt.toDate() : new Date();
+                const formattedDate = dateVal.toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                // Conditional Edit Trigger Panel
+                const editButtonMarkup = isAuthorized 
+                    ? `<button onclick="initializeEdit('${op.id}')" class="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-md cursor-pointer transition-colors">Edit</button>`
+                    : '';
+
+                const card = document.createElement('div');
+                card.className = "bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3 transition-all duration-200 hover:border-slate-300 hover:shadow";
+                card.innerHTML = `
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="space-y-1">
+                            <h3 class="text-md font-bold text-slate-900 tracking-tight">${escapeHTML(op.name)}</h3>
+                            <div class="text-[10px] text-slate-400 font-mono tracking-wider">${formattedDate}</div>
+                        </div>
+                        <div class="flex items-center space-x-2 flex-shrink-0">
+                            ${editButtonMarkup}
+                        </div>
+                    </div>
+                    <p class="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">${escapeHTML(op.description)}</p>
+                `;
+                operationsContainer.appendChild(card);
+            });
+        }
+
+        // Script Injection Sanitization
+        function escapeHTML(str) {
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
+
+```
